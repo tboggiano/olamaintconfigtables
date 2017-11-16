@@ -1,0 +1,46 @@
+USE master;
+CREATE TABLE dbo.DatabaseBackupConfig
+(
+[Databases] varchar(max) NOT NULL,
+Directory varchar(max) NOT NULL CONSTRAINT DF_DatabaseBackup_Directory DEFAULT 'C:\Backup',
+BackupType varchar(4) NOT NULL,
+Verify char(1) NOT NULL DEFAULT 'N',
+CleanupTime int NULL,
+CleanupMode varchar(13) NOT NULL CONSTRAINT DF_DatabaseBackup_CleanupMode DEFAULT 'AFTER_BACKUP',
+[Compress] char(1) NULL,
+CopyOnly char(1) CONSTRAINT DF_DatabaseBackup_CopyOnly DEFAULT 'N',
+ChangeBackupType char(1) CONSTRAINT DF_DatabaseBackup_ChangeBackupType DEFAULT 'N',
+BackupSoftware varchar(10) NULL,
+[CheckSum] char(1) CONSTRAINT DF_DatabaseBackup_CheckSum DEFAULT 'N',
+[BlockSize] int NULL,
+[BufferCount] int NULL,
+[MaxTransferSize] int NULL,
+NumberOfFiles int NULL,
+CompressionLevel int NULL,
+[Description] nvarchar(max) NULL,
+Threads int NULL,
+Throttle int NULL,
+Encrypt char(1) CONSTRAINT DF_DatabaseBackup_Encrypt DEFAULT 'N',
+EncryptionAlgorithm varchar(15) NULL,
+ServerCertificate varchar(128) NULL,
+ServerAsymmetricKey varchar(128) NULL,
+EncryptionKey varchar(128) NULL,
+ReadWriteFileGroups char(1) CONSTRAINT DF_DatabaseBackup_ReadWriteFileGroups DEFAULT 'N',
+OverrideBackupPreference char(1) CONSTRAINT DF_DatabaseBackup_OverrideBackupPreference DEFAULT 'N',
+[NoRecovery] char(1) CONSTRAINT DF_DatabaseBackup_NoRecovery DEFAULT 'N',
+[URL] nvarchar(max) NULL,
+[Credential] nvarchar(max) NULL,
+MirrorDirectory nvarchar(max) NULL,
+MirrorCleanupTime int NULL,
+MirrorCleanupMode varchar(13) CONSTRAINT DF_DatabaseBackup_MirrorCleanupMode DEFAULT 'AFTER_BACKUP',
+AvailabilityGroups nvarchar(max) CONSTRAINT DF_DatabaseBackup_AvailabilityGroups DEFAULT NULL,
+Updateability nvarchar(10) CONSTRAINT DF_DatabaseBackup_Updateability DEFAULT 'ALL',
+LogToTable char(1) CONSTRAINT DF_DatabaseBackup_LogToTable DEFAULT 'N',
+[Execute] char(1) CONSTRAINT DF_DatabaseBackup_Execute DEFAULT 'Y'
+);
+
+INSERT INTO dbo.DatabaseBackupConfig (Databases, BackupType)
+VALUES ('SYSTEM_DATABASES', 'FULL'),
+('USER_DATABASES', 'DIFF'),
+('USER_DATABASES', 'FULL'),
+('USER_DATABASES', 'LOG')
