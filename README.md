@@ -1,3 +1,4 @@
 # olamaintconfigtables
-Tables for Ola Hallengren's procedures so you can run jobs on Linux use T-SQL and configured jobs using MSX/TSX.
-Also, includes scripts to replace jobs.
+This are tables and jobs that can use to run Ola's scripts as T-SQL Jobs and run on Linux.  But allow you to customize jobs across all
+servers by changing values in a table.  Very useful if you are using MSX/TSX.
+
