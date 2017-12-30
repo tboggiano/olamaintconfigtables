@@ -22,7 +22,7 @@ EXEC @ReturnCode =  msdb.dbo.sp_add_job @job_name=N'DatabaseBackup - SYSTEM_DATA
 		@notify_level_netsend=0, 
 		@notify_level_page=0, 
 		@delete_level=0, 
-		@description=N'Source: https://ola.hallengren.com', 
+		@description=N'Source: https://github.com/tboggiano/olamaintconfigtables', 
 		@category_name=N'Database Maintenance', 
 		@owner_login_name=N'sa', @job_id = @jobId OUTPUT
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
@@ -190,7 +190,7 @@ EXEC @ReturnCode =  msdb.dbo.sp_add_job @job_name=N'DatabaseBackup - USER_DATABA
 		@notify_level_netsend=0, 
 		@notify_level_page=0, 
 		@delete_level=0, 
-		@description=N'Source: https://ola.hallengren.com', 
+		@description=N'Source: https://github.com/tboggiano/olamaintconfigtables', 
 		@category_name=N'Database Maintenance', 
 		@owner_login_name=N'sa', @job_id = @jobId OUTPUT
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
@@ -358,7 +358,7 @@ EXEC @ReturnCode =  msdb.dbo.sp_add_job @job_name=N'DatabaseBackup - USER_DATABA
 		@notify_level_netsend=0, 
 		@notify_level_page=0, 
 		@delete_level=0, 
-		@description=N'Source: https://ola.hallengren.com', 
+		@description=N'Source: https://github.com/tboggiano/olamaintconfigtables', 
 		@category_name=N'Database Maintenance', 
 		@owner_login_name=N'sa', @job_id = @jobId OUTPUT
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
@@ -527,7 +527,7 @@ EXEC @ReturnCode =  msdb.dbo.sp_add_job @job_name=N'DatabaseBackup - USER_DATABA
 		@notify_level_netsend=0, 
 		@notify_level_page=0, 
 		@delete_level=0, 
-		@description=N'Source: https://ola.hallengren.com', 
+		@description=N'Source: https://github.com/tboggiano/olamaintconfigtables', 
 		@category_name=N'Database Maintenance', 
 		@owner_login_name=N'sa', @job_id = @jobId OUTPUT
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
@@ -578,7 +578,15 @@ DECLARE
 	@AvailabilityGroups nvarchar(max),
 	@Updateability nvarchar(10),
 	@LogToTable char(1),
-	@Execute char(1)
+	@Execute char(1),
+	@DBInclude varchar(max),
+	@SmartBackup CHAR(1),
+	@LogBackupTimeThresholdMin TINYINT,
+	@LogBackupSizeThresholdMB SMALLINT,
+	@DiffChangePercent DECIMAL(5,2),
+	@MajorVersion TINYINT 
+
+SELECT @MajorVersion = CAST(SERVERPROPERTY(''ProductMajorVersion'') AS TINYINT)
 
 SELECT
 	@Databases = [Databases],
@@ -616,13 +624,39 @@ SELECT
 	@AvailabilityGroups = AvailabilityGroups,
 	@Updateability = Updateability,
 	@LogToTable = LogToTable,
-	@Execute = [Execute]
+	@Execute = [Execute],
+	@SmartBackup = SmartBackup,
+	@LogBackupTimeThresholdMin = LogBackupTimeThresholdMin,
+	@LogBackupSizeThresholdMB = LogBackupSizeThresholdMB
 FROM dbo.DatabaseBackupConfig
 WHERE Databases =''USER_DATABASES''
 	AND BackupType = ''LOG''
 
+IF (@MajorVersion >= 14) AND (@SmartBackup = ''Y'')
+BEGIN
+	SELECT @DBInclude = COALESCE(@DBInclude + '','','''') + d.Name 
+	FROM sys.databases d
+		CROSS APPLY sys.dm_db_log_stats(d.database_id) dls
+	WHERE (dls.log_backup_time  >= DATEADD(MINUTE, @LogBackupTimeThresholdMin, GETDATE())
+		OR dls.log_backup_time IS NULL)
+		AND d.database_id > 4
+
+	SELECT @DBInclude = COALESCE(@DBInclude + '','','''') + d.Name 
+	FROM sys.databases d
+		CROSS APPLY sys.dm_db_log_stats(d.database_id) dls
+	WHERE dls.log_since_last_log_backup_mb >= @LogBackupSizeThresholdMB 
+		AND d.database_id > 4
+END
+ELSE
+BEGIN
+	SELECT @DBInclude = CONCAT(COALESCE(@DBInclude + '','',''''), name) 
+	FROM sys.databases d
+	WHERE d.database_id > 4;
+END
+
+IF @DBInclude IS NOT NULL
 EXECUTE dbo.DatabaseBackup 
-   @Databases = @Databases ,
+   @Databases = @DBInclude ,
     @Directory = @Directory,
     @BackupType = @BackupType,
     @Verify = @Verify,
