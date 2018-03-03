@@ -805,8 +805,10 @@ BEGIN
 			OR dls.log_since_last_log_backup_mb >= @LogBackupSizeThresholdMB 
 			OR d.name NOT IN (
 				SELECT d.name
-				FROM DBMaint.vAccessibleChangeableDBs d
-					CROSS APPLY sys.dm_db_log_stats(d.database_id) dls)
+				FROM sys.databases d
+					CROSS APPLY sys.dm_db_log_stats(d.database_id) dls
+				WHERE d.database_id > 4;)
+			AND d.database_id > 4;
 END
 ELSE
 BEGIN
