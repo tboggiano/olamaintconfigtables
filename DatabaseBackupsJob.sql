@@ -307,7 +307,7 @@ BEGIN
 	DECLARE @DBFullBackups NVARCHAR(MAX)
 	DECLARE @DBDiffBackups NVARCHAR(MAX)
 
-	SELECT @SQL = REPLACE(REPLACE(
+	SELECT @SQL += REPLACE(REPLACE(
 		 ''SELECT DB_NAME(dsu.database_id) AS DBName, 
 			CAST(ROUND((SUM(modified_extent_page_count) * 100.0) / SUM(allocated_extent_page_count), 2) AS DECIMAL(5,2)) AS "DiffChangePct"
 		FROM sys.databases d
@@ -323,11 +323,11 @@ BEGIN
 	INSERT INTO #temp              
 	EXEC sys.sp_executesql @SQL
 
-	SELECT @DBFullBackups = COALESCE(@DBFullBackups + '','','''') + d.Name 
+	SELECT @DBFullBackups = COALESCE(@DBFullBackups + '','','''') + DatabaseName 
 	FROM #temp
 	WHERE DiffChangePercent >= @DiffChangePercent 
 
-	SELECT @DBDiffBackups = COALESCE(@DBDiffBackups + '','','''') + d.Name 
+	SELECT @DBDiffBackups = COALESCE(@DBDiffBackups + '','','''') + DatabaseName 
 	FROM #temp
 	WHERE DiffChangePercent < @DiffChangePercent 
 
@@ -800,15 +800,13 @@ BEGIN
 	SELECT @DBInclude = COALESCE(@DBInclude + '','','''') + d.Name 
 	FROM sys.databases d
 		CROSS APPLY sys.dm_db_log_stats(d.database_id) dls
-	WHERE (dls.log_backup_time  >= DATEADD(MINUTE, @LogBackupTimeThresholdMin, GETDATE())
-		OR dls.log_backup_time IS NULL)
-		AND d.database_id > 4
-
-	SELECT @DBInclude = COALESCE(@DBInclude + '','','''') + d.Name 
-	FROM sys.databases d
-		CROSS APPLY sys.dm_db_log_stats(d.database_id) dls
-	WHERE dls.log_since_last_log_backup_mb >= @LogBackupSizeThresholdMB 
-		AND d.database_id > 4
+		WHERE (dls.log_backup_time  <= DATEADD(MINUTE, @LogBackupTimeThresholdMin * -1, GETDATE())
+			OR dls.log_backup_time IS NULL)
+			OR dls.log_since_last_log_backup_mb >= @LogBackupSizeThresholdMB 
+			OR d.name NOT IN (
+				SELECT d.name
+				FROM DBMaint.vAccessibleChangeableDBs d
+					CROSS APPLY sys.dm_db_log_stats(d.database_id) dls)
 END
 ELSE
 BEGIN
@@ -818,43 +816,43 @@ BEGIN
 END
 
 IF @DBInclude IS NOT NULL
-EXECUTE dbo.DatabaseBackup 
-   @Databases = @DBInclude ,
-    @Directory = @Directory,
-    @BackupType = @BackupType,
-    @Verify = @Verify,
-    @CleanupTime = @CleanupTime,
-    @CleanupMode = @CleanupMode,
-    @Compress = @Compress,
-    @CopyOnly = @CopyOnly,
-    @ChangeBackupType = @ChangeBackupType,
-    @BackupSoftware = @BackupSoftware,
-    @CheckSum = @CheckSum,
-    @BlockSize = @BlockSize,
-    @BufferCount = @BufferCount,
-    @MaxTransferSize = @MaxTransferSize,
-    @NumberOfFiles = @NumberOfFiles,
-    @CompressionLevel = @CompressionLevel,
-    @Description = @Description,
-    @Threads = @Threads,
-    @Throttle = @Throttle,
-    @Encrypt = @Encrypt,
-    @EncryptionAlgorithm = @EncryptionAlgorithm,
-    @ServerCertificate = @ServerCertificate,
-    @ServerAsymmetricKey = @ServerAsymmetricKey,
-    @EncryptionKey = @EncryptionKey,
-    @ReadWriteFileGroups = @ReadWriteFileGroups,
-    @OverrideBackupPreference = @OverrideBackupPreference,
-    @NoRecovery = @NoRecovery,
-    @URL = @URL,
-    @Credential = @Credential,
-    @MirrorDirectory = @MirrorDirectory,
-    @MirrorCleanupTime = @MirrorCleanupTime,
-    @MirrorCleanupMode = @MirrorCleanupMode,
-    @LogToTable = @LogToTable,
-    @Execute= @Execute;', 
-		@database_name=N'master', 
-		@flags=0
+	EXECUTE dbo.DatabaseBackup 
+	   @Databases = @DBInclude ,
+		@Directory = @Directory,
+		@BackupType = @BackupType,
+		@Verify = @Verify,
+		@CleanupTime = @CleanupTime,
+		@CleanupMode = @CleanupMode,
+		@Compress = @Compress,
+		@CopyOnly = @CopyOnly,
+		@ChangeBackupType = @ChangeBackupType,
+		@BackupSoftware = @BackupSoftware,
+		@CheckSum = @CheckSum,
+		@BlockSize = @BlockSize,
+		@BufferCount = @BufferCount,
+		@MaxTransferSize = @MaxTransferSize,
+		@NumberOfFiles = @NumberOfFiles,
+		@CompressionLevel = @CompressionLevel,
+		@Description = @Description,
+		@Threads = @Threads,
+		@Throttle = @Throttle,
+		@Encrypt = @Encrypt,
+		@EncryptionAlgorithm = @EncryptionAlgorithm,
+		@ServerCertificate = @ServerCertificate,
+		@ServerAsymmetricKey = @ServerAsymmetricKey,
+		@EncryptionKey = @EncryptionKey,
+		@ReadWriteFileGroups = @ReadWriteFileGroups,
+		@OverrideBackupPreference = @OverrideBackupPreference,
+		@NoRecovery = @NoRecovery,
+		@URL = @URL,
+		@Credential = @Credential,
+		@MirrorDirectory = @MirrorDirectory,
+		@MirrorCleanupTime = @MirrorCleanupTime,
+		@MirrorCleanupMode = @MirrorCleanupMode,
+		@LogToTable = @LogToTable,
+		@Execute= @Execute;', 
+	@database_name=N'master', 
+	@flags=0
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
 EXEC @ReturnCode = msdb.dbo.sp_update_job @job_id = @jobId, @start_step_id = 1
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
