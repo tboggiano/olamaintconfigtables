@@ -312,7 +312,7 @@ BEGIN
 			CAST(ROUND((SUM(modified_extent_page_count) * 100.0) / SUM(allocated_extent_page_count), 2) AS DECIMAL(5,2)) AS "DiffChangePct"
 		FROM sys.databases d
 			CROSS APPLY {{DBName}}.sys.dm_db_file_space_usage dsu 
-		GROUP BY dsu.database_id''
+		GROUP BY dsu.database_id ''
 		,''{{DBName}}'',d.name)
 		,''"'','''''''')
 		FROM (
@@ -354,7 +354,7 @@ END
 --Create description of databases that actually being backed up
 SET @Description = CONCAT(@BackupType, N'' backups of '', @Databases, '''', CONVERT(NVARCHAR(30),GETDATE(),9));
 
-IF (@DBInclude IS NOT NULL AND @SmartBackup =''N'') OR (@DBDiffBackups IS NOT NULL AND @SmartBackup = ''Y'')
+IF (@DBInclude IS NOT NULL)
 BEGIN
 	IF @SmartBackup = ''Y''
 		SET @DBInclude = @DBDiffBackups
@@ -397,7 +397,8 @@ BEGIN
 		@LogToTable = @LogToTable,
 		@Execute= @Execute;
 END
-ELSE IF @DBFullBackups IS NOT NULL AND @SmartBackup = ''Y''
+
+IF @DBFullBackups IS NOT NULL
 BEGIN
 	SELECT
 		@Databases = [Databases],
