@@ -37,10 +37,10 @@ AvailabilityGroups nvarchar(max) NOT NULL CONSTRAINT DF_DatabaseBackup_Availabil
 Updateability nvarchar(10) NOT NULL CONSTRAINT DF_DatabaseBackup_Updateability DEFAULT 'ALL',
 LogToTable char(1) NOT NULL CONSTRAINT DF_DatabaseBackup_LogToTable DEFAULT 'N',
 [Execute] char(1) NOT NULL CONSTRAINT DF_DatabaseBackup_Execute DEFAULT 'Y',
-SmartBackup CHAR(1) NOT NULL CONSTRAINT DF_DatabaseBackupConfig_SmartBackup DEFAULT 'N',
-LogBackupTimeThresholdMin TINYINT NULL,
-LogBackupSizeThresholdMB SMALLINT NULL,
-DiffChangePercent DECIMAL(5,2) NULL
+AdaptiveCompression VARCHAR(5) NULL,
+ModificationLevel TINYINT NULL,
+LogSizeSinceLastLogBackup INT NULL,
+TimeSinceLastLogBackup INT NULL
 );
 
 INSERT INTO dbo.DatabaseBackupConfig (Databases, BackupType)

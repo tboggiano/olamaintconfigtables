@@ -73,7 +73,11 @@ DECLARE
 	@AvailabilityGroups nvarchar(max),
 	@Updateability nvarchar(10),
 	@LogToTable char(1),
-	@Execute char(1)
+	@Execute char(1),
+	@AdaptiveCompression VARCHAR(5),
+	@ModificationLevel TINYINT,
+	@LogSizeSinceLastLogBackup INT,
+	@TimeSinceLastLogBackup INT 
 
 SELECT
 	@Databases = [Databases],
@@ -111,7 +115,11 @@ SELECT
 	@AvailabilityGroups = AvailabilityGroups,
 	@Updateability = Updateability,
 	@LogToTable = LogToTable,
-	@Execute = [Execute]
+	@Execute = [Execute],
+	@AdaptiveCompression = AdaptiveCompression,
+	@ModificationLevel = ModificationLevel,
+	@LogSizeSinceLastLogBackup = LogSizeSinceLastLogBackup,
+	@TimeSinceLastLogBackup = TimeSinceLastLogBackup 
 FROM dbo.DatabaseBackupConfig
 WHERE Databases =''SYSTEM_DATABASES''
 	AND BackupType = ''FULL''
@@ -150,7 +158,11 @@ EXECUTE dbo.DatabaseBackup
     @MirrorCleanupTime = @MirrorCleanupTime,
     @MirrorCleanupMode = @MirrorCleanupMode,
     @LogToTable = @LogToTable,
-    @Execute= @Execute;', 
+    @Execute= @Execute,
+	@AdaptiveCompression = @AdaptiveCompression,
+	@ModificationLevel = @ModificationLevel,
+	@LogSizeSinceLastLogBackup = @LogSizeSinceLastLogBackup,
+	@TimeSinceLastLogBackup = @TimeSinceLastLogBackup ;', 
 		@database_name=N'master', 
 		@flags=0
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
@@ -241,14 +253,10 @@ DECLARE
 	@Updateability nvarchar(10),
 	@LogToTable char(1),
 	@Execute char(1),
-	@DBInclude varchar(max),
-	@SmartBackup CHAR(1),
-	@LogBackupTimeThresholdMin TINYINT,
-	@LogBackupSizeThresholdMB SMALLINT,
-	@DiffChangePercent DECIMAL(5,2),
-	@MajorVersion TINYINT 
-
-SELECT @MajorVersion = CAST(SERVERPROPERTY(''ProductMajorVersion'') AS TINYINT)
+	@AdaptiveCompression VARCHAR(5),
+	@ModificationLevel TINYINT,
+	@LogSizeSinceLastLogBackup INT,
+	@TimeSinceLastLogBackup INT 
 
 --Retrieve values from table
 SELECT
@@ -288,202 +296,53 @@ SELECT
 	@Updateability = Updateability,
 	@LogToTable = LogToTable,
 	@Execute = [Execute],
-	@SmartBackup = SmartBackup,
-	@LogBackupTimeThresholdMin = LogBackupTimeThresholdMin,
-	@LogBackupSizeThresholdMB = LogBackupSizeThresholdMB,
-	@DiffChangePercent = DiffChangePercent
+	@AdaptiveCompression = AdaptiveCompression,
+	@ModificationLevel = ModificationLevel,
+	@LogSizeSinceLastLogBackup = LogSizeSinceLastLogBackup,
+	@TimeSinceLastLogBackup = TimeSinceLastLogBackup 
 FROM dbo.DatabaseBackupConfig
 WHERE Databases =''USER_DATABASES''
 	AND BackupType = ''DIFF''
 
-IF (@MajorVersion >= 14) AND (@SmartBackup = ''Y'')
-BEGIN
-	CREATE TABLE #temp
-	(	DatabaseName sysname NOT NULL,
-		DiffChangePercent DECIMAL(5,2) NOT NULL
-	)
-
-	DECLARE @SQL NVARCHAR(MAX)
-	DECLARE @DBFullBackups NVARCHAR(MAX)
-	DECLARE @DBDiffBackups NVARCHAR(MAX)
-
-	SELECT @SQL += REPLACE(REPLACE(
-		 ''SELECT DB_NAME(dsu.database_id) AS DBName, 
-			CAST(ROUND((SUM(modified_extent_page_count) * 100.0) / SUM(allocated_extent_page_count), 2) AS DECIMAL(5,2)) AS "DiffChangePct"
-		FROM sys.databases d
-			CROSS APPLY {{DBName}}.sys.dm_db_file_space_usage dsu 
-		GROUP BY dsu.database_id ''
-		,''{{DBName}}'',d.name)
-		,''"'','''''''')
-		FROM (
-		SELECT d.name 
-		FROM sys.databases d
-		WHERE database_id > 4
-	
-	INSERT INTO #temp              
-	EXEC sys.sp_executesql @SQL
-
-	SELECT @DBFullBackups = COALESCE(@DBFullBackups + '','','''') + DatabaseName 
-	FROM #temp
-	WHERE DiffChangePercent >= @DiffChangePercent 
-
-	SELECT @DBDiffBackups = COALESCE(@DBDiffBackups + '','','''') + DatabaseName 
-	FROM #temp
-	WHERE DiffChangePercent < @DiffChangePercent 
-
-	DROP TABLE #temp
-END
-ELSE
-BEGIN
-	SELECT @DBInclude = @Databases
-END
-
-IF @Databases = ''SYSTEM_DATABSES''
-BEGIN
-	SET @DBInclude += '',-USER_DATABASES'';
-	SET @DBFullBackups += '',-USER_DATABASES'';
-	SET @DBDiffBackups  += '',-USER_DATABASES'';
-END
-ELSE IF @Databases = ''USER_DATABASES''
-BEGIN
-	SET @DBInclude += '',-SYSTEM_DATABASES'';
-	SET @DBFullBackups += '',-SYSTEM_DATABASES'';
-	SET @DBDiffBackups  += '',-SYSTEM_DATABASES'';
-END
-
---Create description of databases that actually being backed up
-SET @Description = CONCAT(@BackupType, N'' backups of '', @Databases, '''', CONVERT(NVARCHAR(30),GETDATE(),9));
-
-IF (@DBInclude IS NOT NULL)
-BEGIN
-	IF @SmartBackup = ''Y''
-		SET @DBInclude = @DBDiffBackups
-
-	EXECUTE dbo.DatabaseBackup 
-		@Databases = @DBInclude,
-		@Directory = @Directory,
-		@BackupType = @BackupType,
-		@Verify = @Verify,
-		@CleanupTime = @CleanupTime,
-		@CleanupMode = @CleanupMode,
-		@Compress = @Compress,
-		@CopyOnly = @CopyOnly,
-		@ChangeBackupType = @ChangeBackupType,
-		@BackupSoftware = @BackupSoftware,
-		@CheckSum = @CheckSum,
-		@BlockSize = @BlockSize,
-		@BufferCount = @BufferCount,
-		@MaxTransferSize = @MaxTransferSize,
-		@NumberOfFiles = @NumberOfFiles,
-		@CompressionLevel = @CompressionLevel,
-		@Description = @Description,
-		@Threads = @Threads,
-		@Throttle = @Throttle,
-		@Encrypt = @Encrypt,
-		@EncryptionAlgorithm = @EncryptionAlgorithm,
-		@ServerCertificate = @ServerCertificate,
-		@ServerAsymmetricKey = @ServerAsymmetricKey,
-		@EncryptionKey = @EncryptionKey,
-		@ReadWriteFileGroups = @ReadWriteFileGroups,
-		@OverrideBackupPreference = @OverrideBackupPreference,
-		@NoRecovery = @NoRecovery,
-		@URL = @URL,
-		@Credential = @Credential,
-		@MirrorDirectory = @MirrorDirectory,
-		@MirrorCleanupTime = @MirrorCleanupTime,
-		@MirrorCleanupMode = @MirrorCleanupMode,
-		@AvailabilityGroups = @AvailabilityGroups,
-		@Updateability = @Updateability,
-		@LogToTable = @LogToTable,
-		@Execute= @Execute;
-END
-
-IF @DBFullBackups IS NOT NULL
-BEGIN
-	SELECT
-		@Databases = [Databases],
-		@Directory = Directory,
-		@BackupType = BackupType,
-		@Verify = Verify,
-		@CleanupTime = CleanupTime,
-		@CleanupMode = CleanupMode,
-		@Compress = [Compress],
-		@CopyOnly = CopyOnly,
-		@ChangeBackupType = ChangeBackupType,
-		@BackupSoftware = BackupSoftware,
-		@CheckSum = [CheckSum],
-		@BlockSize = [BlockSize],
-		@BufferCount = [BufferCount],
-		@MaxTransferSize = [MaxTransferSize],
-		@NumberOfFiles = NumberOfFiles,
-		@CompressionLevel = CompressionLevel,
-		@Description = [Description],
-		@Threads = Threads,
-		@Throttle = Throttle,
-		@Encrypt = Encrypt,
-		@EncryptionAlgorithm = EncryptionAlgorithm,
-		@ServerCertificate = ServerCertificate,
-		@ServerAsymmetricKey = ServerAsymmetricKey,
-		@EncryptionKey = EncryptionKey,
-		@ReadWriteFileGroups = ReadWriteFileGroups,
-		@OverrideBackupPreference = OverrideBackupPreference,
-		@NoRecovery = [NoRecovery],
-		@URL = [URL],
-		@Credential = [Credential],
-		@MirrorDirectory = MirrorDirectory,
-		@MirrorCleanupTime = MirrorCleanupTime,
-		@MirrorCleanupMode = MirrorCleanupMode,
-		@AvailabilityGroups = AvailabilityGroups,
-		@Updateability = Updateability,
-		@LogToTable = LogToTable,
-		@Execute = [Execute],
-		@SmartBackup = SmartBackup,
-		@LogBackupTimeThresholdMin = LogBackupTimeThresholdMin,
-		@LogBackupSizeThresholdMB = LogBackupSizeThresholdMB,
-		@DiffChangePercent = DiffChangePercent
-	FROM dbo.DatabaseBackupConfig
-	WHERE Databases =''USER_DATABASES''
-		AND BackupType = ''FULL''
-
-	SET @DBInclude = @DBFullBackups
-
-	EXECUTE dbo.DatabaseBackup 
-		@Databases = @DBInclude,
-		@Directory = @Directory,
-		@BackupType = @BackupType,
-		@Verify = @Verify,
-		@CleanupTime = @CleanupTime,
-		@CleanupMode = @CleanupMode,
-		@Compress = @Compress,
-		@CopyOnly = @CopyOnly,
-		@ChangeBackupType = @ChangeBackupType,
-		@BackupSoftware = @BackupSoftware,
-		@CheckSum = @CheckSum,
-		@BlockSize = @BlockSize,
-		@BufferCount = @BufferCount,
-		@MaxTransferSize = @MaxTransferSize,
-		@NumberOfFiles = @NumberOfFiles,
-		@CompressionLevel = @CompressionLevel,
-		@Description = @Description,
-		@Threads = @Threads,
-		@Throttle = @Throttle,
-		@Encrypt = @Encrypt,
-		@EncryptionAlgorithm = @EncryptionAlgorithm,
-		@ServerCertificate = @ServerCertificate,
-		@ServerAsymmetricKey = @ServerAsymmetricKey,
-		@EncryptionKey = @EncryptionKey,
-		@ReadWriteFileGroups = @ReadWriteFileGroups,
-		@OverrideBackupPreference = @OverrideBackupPreference,
-		@NoRecovery = @NoRecovery,
-		@URL = @URL,
-		@Credential = @Credential,
-		@MirrorDirectory = @MirrorDirectory,
-		@MirrorCleanupTime = @MirrorCleanupTime,
-		@MirrorCleanupMode = @MirrorCleanupMode,
-		@AvailabilityGroups = @AvailabilityGroups,
-		@Updateability = @Updateability,
-		@LogToTable = @LogToTable,
-		@Execute= @Execute;
+EXECUTE dbo.DatabaseBackup 
+   @Databases = @Databases ,
+    @Directory = @Directory,
+    @BackupType = @BackupType,
+    @Verify = @Verify,
+    @CleanupTime = @CleanupTime,
+    @CleanupMode = @CleanupMode,
+    @Compress = @Compress,
+    @CopyOnly = @CopyOnly,
+    @ChangeBackupType = @ChangeBackupType,
+    @BackupSoftware = @BackupSoftware,
+    @CheckSum = @CheckSum,
+    @BlockSize = @BlockSize,
+    @BufferCount = @BufferCount,
+    @MaxTransferSize = @MaxTransferSize,
+    @NumberOfFiles = @NumberOfFiles,
+    @CompressionLevel = @CompressionLevel,
+    @Description = @Description,
+    @Threads = @Threads,
+    @Throttle = @Throttle,
+    @Encrypt = @Encrypt,
+    @EncryptionAlgorithm = @EncryptionAlgorithm,
+    @ServerCertificate = @ServerCertificate,
+    @ServerAsymmetricKey = @ServerAsymmetricKey,
+    @EncryptionKey = @EncryptionKey,
+    @ReadWriteFileGroups = @ReadWriteFileGroups,
+    @OverrideBackupPreference = @OverrideBackupPreference,
+    @NoRecovery = @NoRecovery,
+    @URL = @URL,
+    @Credential = @Credential,
+    @MirrorDirectory = @MirrorDirectory,
+    @MirrorCleanupTime = @MirrorCleanupTime,
+    @MirrorCleanupMode = @MirrorCleanupMode,
+    @LogToTable = @LogToTable,
+    @Execute= @Execute,
+	@AdaptiveCompression = @AdaptiveCompression,
+	@ModificationLevel = @ModificationLevel,
+	@LogSizeSinceLastLogBackup = @LogSizeSinceLastLogBackup,
+	@TimeSinceLastLogBackup = @TimeSinceLastLogBackup ; 
 END', 
 		@database_name=N'master', 
 		@flags=0
@@ -574,7 +433,11 @@ DECLARE
 	@AvailabilityGroups nvarchar(max),
 	@Updateability nvarchar(10),
 	@LogToTable char(1),
-	@Execute char(1)
+	@Execute char(1),
+	@AdaptiveCompression VARCHAR(5),
+	@ModificationLevel TINYINT,
+	@LogSizeSinceLastLogBackup INT,
+	@TimeSinceLastLogBackup INT 
 
 SELECT
 	@Databases = [Databases],
@@ -612,7 +475,11 @@ SELECT
 	@AvailabilityGroups = AvailabilityGroups,
 	@Updateability = Updateability,
 	@LogToTable = LogToTable,
-	@Execute = [Execute]
+	@Execute = [Execute],
+	@AdaptiveCompression = AdaptiveCompression,
+	@ModificationLevel = ModificationLevel,
+	@LogSizeSinceLastLogBackup = LogSizeSinceLastLogBackup,
+	@TimeSinceLastLogBackup = TimeSinceLastLogBackup 
 FROM dbo.DatabaseBackupConfig
 WHERE Databases =''USER_DATABASES''
 	AND BackupType = ''FULL''
@@ -651,7 +518,11 @@ EXECUTE dbo.DatabaseBackup
     @MirrorCleanupTime = @MirrorCleanupTime,
     @MirrorCleanupMode = @MirrorCleanupMode,
     @LogToTable = @LogToTable,
-    @Execute= @Execute;', 
+    @Execute= @Execute,
+	@AdaptiveCompression = @AdaptiveCompression,
+	@ModificationLevel = @ModificationLevel,
+	@LogSizeSinceLastLogBackup = @LogSizeSinceLastLogBackup,
+	@TimeSinceLastLogBackup = @TimeSinceLastLogBackup ;', 
 		@database_name=N'master', 
 		@flags=0
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
@@ -745,12 +616,10 @@ DECLARE
 	@Execute char(1),
 	@DBInclude varchar(max),
 	@SmartBackup CHAR(1),
-	@LogBackupTimeThresholdMin TINYINT,
-	@LogBackupSizeThresholdMB SMALLINT,
-	@DiffChangePercent DECIMAL(5,2),
-	@MajorVersion TINYINT 
-
-SELECT @MajorVersion = CAST(SERVERPROPERTY(''ProductMajorVersion'') AS TINYINT)
+	@AdaptiveCompression VARCHAR(5),
+	@ModificationLevel TINYINT,
+	@LogSizeSinceLastLogBackup INT,
+	@TimeSinceLastLogBackup INT 
 
 SELECT
 	@Databases = [Databases],
@@ -789,71 +658,53 @@ SELECT
 	@Updateability = Updateability,
 	@LogToTable = LogToTable,
 	@Execute = [Execute],
-	@SmartBackup = SmartBackup,
-	@LogBackupTimeThresholdMin = LogBackupTimeThresholdMin,
-	@LogBackupSizeThresholdMB = LogBackupSizeThresholdMB
+	@AdaptiveCompression = AdaptiveCompression,
+	@ModificationLevel = ModificationLevel,
+	@LogSizeSinceLastLogBackup = LogSizeSinceLastLogBackup,
+	@TimeSinceLastLogBackup = TimeSinceLastLogBackup 
 FROM dbo.DatabaseBackupConfig
 WHERE Databases =''USER_DATABASES''
 	AND BackupType = ''LOG''
 
-IF (@MajorVersion >= 14) AND (@SmartBackup = ''Y'')
-BEGIN
-	SELECT @DBInclude = COALESCE(@DBInclude + '','','''') + d.Name 
-	FROM sys.databases d
-		CROSS APPLY sys.dm_db_log_stats(d.database_id) dls
-		WHERE (dls.log_backup_time  <= DATEADD(MINUTE, @LogBackupTimeThresholdMin * -1, GETDATE())
-			OR dls.log_backup_time IS NULL)
-			OR dls.log_since_last_log_backup_mb >= @LogBackupSizeThresholdMB 
-			OR d.name NOT IN (
-				SELECT d.name
-				FROM sys.databases d
-					CROSS APPLY sys.dm_db_log_stats(d.database_id) dls
-				WHERE d.database_id > 4;)
-			AND d.database_id > 4;
-END
-ELSE
-BEGIN
-	SELECT @DBInclude = CONCAT(COALESCE(@DBInclude + '','',''''), name) 
-	FROM sys.databases d
-	WHERE d.database_id > 4;
-END
-
-IF @DBInclude IS NOT NULL
-	EXECUTE dbo.DatabaseBackup 
-	   @Databases = @DBInclude ,
-		@Directory = @Directory,
-		@BackupType = @BackupType,
-		@Verify = @Verify,
-		@CleanupTime = @CleanupTime,
-		@CleanupMode = @CleanupMode,
-		@Compress = @Compress,
-		@CopyOnly = @CopyOnly,
-		@ChangeBackupType = @ChangeBackupType,
-		@BackupSoftware = @BackupSoftware,
-		@CheckSum = @CheckSum,
-		@BlockSize = @BlockSize,
-		@BufferCount = @BufferCount,
-		@MaxTransferSize = @MaxTransferSize,
-		@NumberOfFiles = @NumberOfFiles,
-		@CompressionLevel = @CompressionLevel,
-		@Description = @Description,
-		@Threads = @Threads,
-		@Throttle = @Throttle,
-		@Encrypt = @Encrypt,
-		@EncryptionAlgorithm = @EncryptionAlgorithm,
-		@ServerCertificate = @ServerCertificate,
-		@ServerAsymmetricKey = @ServerAsymmetricKey,
-		@EncryptionKey = @EncryptionKey,
-		@ReadWriteFileGroups = @ReadWriteFileGroups,
-		@OverrideBackupPreference = @OverrideBackupPreference,
-		@NoRecovery = @NoRecovery,
-		@URL = @URL,
-		@Credential = @Credential,
-		@MirrorDirectory = @MirrorDirectory,
-		@MirrorCleanupTime = @MirrorCleanupTime,
-		@MirrorCleanupMode = @MirrorCleanupMode,
-		@LogToTable = @LogToTable,
-		@Execute= @Execute;', 
+EXECUTE dbo.DatabaseBackup 
+	@Databases = @DBInclude ,
+	@Directory = @Directory,
+	@BackupType = @BackupType,
+	@Verify = @Verify,
+	@CleanupTime = @CleanupTime,
+	@CleanupMode = @CleanupMode,
+	@Compress = @Compress,
+	@CopyOnly = @CopyOnly,
+	@ChangeBackupType = @ChangeBackupType,
+	@BackupSoftware = @BackupSoftware,
+	@CheckSum = @CheckSum,
+	@BlockSize = @BlockSize,
+	@BufferCount = @BufferCount,
+	@MaxTransferSize = @MaxTransferSize,
+	@NumberOfFiles = @NumberOfFiles,
+	@CompressionLevel = @CompressionLevel,
+	@Description = @Description,
+	@Threads = @Threads,
+	@Throttle = @Throttle,
+	@Encrypt = @Encrypt,
+	@EncryptionAlgorithm = @EncryptionAlgorithm,
+	@ServerCertificate = @ServerCertificate,
+	@ServerAsymmetricKey = @ServerAsymmetricKey,
+	@EncryptionKey = @EncryptionKey,
+	@ReadWriteFileGroups = @ReadWriteFileGroups,
+	@OverrideBackupPreference = @OverrideBackupPreference,
+	@NoRecovery = @NoRecovery,
+	@URL = @URL,
+	@Credential = @Credential,
+	@MirrorDirectory = @MirrorDirectory,
+	@MirrorCleanupTime = @MirrorCleanupTime,
+	@MirrorCleanupMode = @MirrorCleanupMode,
+	@LogToTable = @LogToTable,
+	@Execute= @Execute,
+	@AdaptiveCompression = @AdaptiveCompression,
+	@ModificationLevel = @ModificationLevel,
+	@LogSizeSinceLastLogBackup = @LogSizeSinceLastLogBackup,
+	@TimeSinceLastLogBackup = @TimeSinceLastLogBackup ; ;', 
 	@database_name=N'master', 
 	@flags=0
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
