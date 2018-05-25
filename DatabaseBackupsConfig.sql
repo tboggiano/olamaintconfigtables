@@ -33,7 +33,7 @@ OverrideBackupPreference char(1) NOT NULL CONSTRAINT DF_DatabaseBackup_OverrideB
 MirrorDirectory nvarchar(max) NULL,
 MirrorCleanupTime int NULL,
 MirrorCleanupMode varchar(13) NOT NULL CONSTRAINT DF_DatabaseBackup_MirrorCleanupMode DEFAULT 'AFTER_BACKUP',
-AvailabilityGroups nvarchar(max) NOT NULL CONSTRAINT DF_DatabaseBackup_AvailabilityGroups DEFAULT NULL,
+AvailabilityGroups nvarchar(max) NULL CONSTRAINT DF_DatabaseBackup_AvailabilityGroups,
 Updateability nvarchar(10) NOT NULL CONSTRAINT DF_DatabaseBackup_Updateability DEFAULT 'ALL',
 LogToTable char(1) NOT NULL CONSTRAINT DF_DatabaseBackup_LogToTable DEFAULT 'N',
 [Execute] char(1) NOT NULL CONSTRAINT DF_DatabaseBackup_Execute DEFAULT 'Y',
