@@ -317,7 +317,7 @@ EXECUTE dbo.DatabaseBackup
     @BackupSoftware = @BackupSoftware,
     @CheckSum = @CheckSum,
     @BlockSize = @BlockSize,
-    @BufferCount = @BufferCount,
+    @BufferCount = @BufferCount, 
     @MaxTransferSize = @MaxTransferSize,
     @NumberOfFiles = @NumberOfFiles,
     @CompressionLevel = @CompressionLevel,
