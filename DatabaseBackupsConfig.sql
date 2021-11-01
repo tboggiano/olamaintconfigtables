@@ -1,5 +1,3 @@
-USE master;
-USE Operations;
 CREATE TABLE dbo.DatabaseBackupConfig
 (
 [Databases] nvarchar(max) NOT NULL,
@@ -63,8 +61,3 @@ DatabasesInParallel nvarchar(max) NOT NULL CONSTRAINT DF_DatabaseBackup_Database
 LogToTable nvarchar(max) NOT NULL CONSTRAINT DF_DatabaseBackup_LogToTable DEFAULT 'N',
 [Execute] nvarchar(max) NOT NULL CONSTRAINT DF_DatabaseBackup_Execute DEFAULT 'Y',
 );
-
-INSERT INTO dbo.DatabaseBackupConfig (Databases, BackupType)
-VALUES ('SYSTEM_DATABASES', 'FULL'),
-('USER_DATABASES', 'FULL'),
-('ALL_DATABASES', 'LOG')
