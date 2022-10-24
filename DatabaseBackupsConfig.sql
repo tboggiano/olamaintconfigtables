@@ -1,8 +1,8 @@
 use master;
 CREATE TABLE dbo.DatabaseBackupConfig
 (
-[Databases] nvarchar(max) NOT NULL,
-Directory nvarchar(max) NOT NULL,
+[Databases] nvarchar(max) NULL,
+Directory nvarchar(max) NULL,
 BackupType nvarchar(max) NOT NULL,
 Verify nvarchar(max) NOT NULL CONSTRAINT DF_DatabaseBackup_Verify DEFAULT 'N',
 CleanupTime int NULL,
@@ -22,7 +22,7 @@ CompressionLevel int NULL,
 [Description] nvarchar(max) NULL,
 Threads int NULL,
 Throttle int NULL,
-Encrypt char(1) NOT NULL CONSTRAINT DF_DatabaseBackup_Encrypt DEFAULT 'N',
+Encrypt nvarhcar(MAX) NOT NULL CONSTRAINT DF_DatabaseBackup_Encrypt DEFAULT 'N',
 EncryptionAlgorithm nvarchar(max) NULL,
 ServerCertificate nvarchar(max) NULL,
 ServerAsymmetricKey nvarchar(max) NULL,
@@ -35,6 +35,7 @@ OverrideBackupPreference nvarchar(max) NOT NULL CONSTRAINT DF_DatabaseBackup_Ove
 MirrorDirectory nvarchar(max) NULL,
 MirrorCleanupTime int NULL,
 MirrorCleanupMode nvarchar(max) NOT NULL CONSTRAINT DF_DatabaseBackup_MirrorCleanupMode DEFAULT 'AFTER_BACKUP',
+MirrorURL nvarchar(max) NULL,
 AvailabilityGroups nvarchar(max) NULL,
 Updateability nvarchar(max) NOT NULL CONSTRAINT DF_DatabaseBackup_Updateability DEFAULT 'ALL',
 AdaptiveCompression nvarchar(max) NULL,
