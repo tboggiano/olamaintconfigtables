@@ -1,14 +1,21 @@
-USE [msdb]
-GO
-IF EXISTS (SELECT 1 FROM dbo.sysjobs WHERE name = 'IndexOptimize - USER_DATABASES')
-BEGIN
-	EXEC msdb.dbo.sp_delete_job @job_name=N'IndexOptimize - USER_DATABASES', @delete_unused_schedule=1
-END
+Use master;
+-- Insert for statistics
+INSERT INTO dbo.IndexOptimizeConfig
+(
+    [Databases]
+  , UpdateStatistics
+  , OnlyModifiedStatistics
+  , StatisticsResample
+  , PartitionLevel
+  , MSShippedObjects
+  , LogToTable
+)
+VALUES
+('ALL_DATABASES', 'ALL', 'Y', 'Y', 'Y', 'Y', 'Y');
 
 BEGIN TRANSACTION
 DECLARE @ReturnCode INT
 SELECT @ReturnCode = 0
-
 IF NOT EXISTS (SELECT name FROM msdb.dbo.syscategories WHERE name=N'Database Maintenance' AND category_class=1)
 BEGIN
 EXEC @ReturnCode = msdb.dbo.sp_add_category @class=N'JOB', @type=N'LOCAL', @name=N'Database Maintenance'
@@ -17,19 +24,19 @@ IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
 END
 
 DECLARE @jobId BINARY(16)
-EXEC @ReturnCode =  msdb.dbo.sp_add_job @job_name=N'IndexOptimize - USER_DATABASES', 
+EXEC @ReturnCode =  msdb.dbo.sp_add_job @job_name=N'IndexOptimize - UpdateStatistics - ALL_DATABASES', 
 		@enabled=1, 
 		@notify_level_eventlog=2, 
-		@notify_level_email=0, 
+		@notify_level_email=2, 
 		@notify_level_netsend=0, 
 		@notify_level_page=0, 
 		@delete_level=0, 
 		@description=N'Source: https://ola.hallengren.com', 
 		@category_name=N'Database Maintenance', 
-		@owner_login_name=N'sa', @job_id = @jobId OUTPUT
+		@owner_login_name=N'sa', 
+		@notify_email_operator_name=N'DBA', @job_id = @jobId OUTPUT
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
-
-EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'IndexOptimize - USER_DATABASES', 
+EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'IndexOptimize - UpdateStatistics - ALL_DATABASES', 
 		@step_id=1, 
 		@cmdexec_success_code=0, 
 		@on_success_action=1, 
@@ -39,7 +46,7 @@ EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'IndexOpt
 		@retry_attempts=0, 
 		@retry_interval=0, 
 		@os_run_priority=0, @subsystem=N'TSQL', 
-		@command=N'DECLARE @Databases nvarchar(max) = ''USER_DATABASES'',
+		@command=N'DECLARE @Databases nvarchar(max) = ''ALL_DATABASES'',
 	@FragmentationLow nvarchar(max),
 	@FragmentationMedium nvarchar(max),
 	@FragmentationHigh nvarchar(max),
@@ -50,7 +57,7 @@ EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'IndexOpt
 	@FillFactor int,
 	@PadIndex nvarchar(max),
 	@LOBCompaction nvarchar(max),
-	@UpdateStatistics nvarchar(max),
+	@UpdateStatistics nvarchar(max) = ''ALL'',
 	@OnlyModifiedStatistics nvarchar(max),
 	@StatisticsSample int,
 	@StatisticsResample nvarchar(max),
@@ -92,7 +99,7 @@ SELECT 	@FragmentationLow = FragmentationLow,
 	@Execute = [Execute]
 FROM DBATools.dbo.IndexOptimizeConfig
 WHERE [Databases] = @Databases
-	AND UpdateStatistics IS NULL
+	AND UpdateStatistics = @UpdateStatistics
 
 EXECUTE dbo.IndexOptimize 
     @Databases = @Databases,
@@ -122,11 +129,10 @@ EXECUTE dbo.IndexOptimize
     @LogToTable = @LogToTable,
     @Execute = @Execute;', 
 		@database_name=N'master', 
+		@output_file_name=N'$(ESCAPE_SQUOTE(SQLLOGDIR))\IndexOptimize - UpdateStatistics - ALL_DATABASES_$(ESCAPE_SQUOTE(DATE))_$(ESCAPE_SQUOTE(TIME)).txt', 
 		@flags=0
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
 EXEC @ReturnCode = msdb.dbo.sp_update_job @job_id = @jobId, @start_step_id = 1
-IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
-EXEC @ReturnCode = msdb.dbo.sp_add_jobserver @job_id = @jobId, @server_name = N'(local)'
 IF (@@ERROR <> 0 OR @ReturnCode <> 0) GOTO QuitWithRollback
 COMMIT TRANSACTION
 GOTO EndSave
