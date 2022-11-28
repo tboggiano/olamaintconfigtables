@@ -197,9 +197,12 @@ WHERE d.[state] = 0
 ORDER BY d.name
 FOR XML PATH(''''), TYPE).value(''text()[1]'',''NVARCHAR(max)''), 1, LEN('',''), '''');
 
-SELECT @Databases = @Databases + CASE WHEN LEN(ISNULL(@ExcludeDatabases, '''')) > 0 THEN  '','' + @ExcludeDatabases END
-
-IF LEN(ISNULL(@ExcludeDatabases, '''')) > 0
+SELECT @Databases = @Databases + 
+	CASE 
+		WHEN LEN(ISNULL(@ExcludeDatabases, '''')) > 0 THEN  '','' + @ExcludeDatabases
+		ELSE ''''
+	END
+	
 EXECUTE dbo.DatabaseBackup 
 	@Databases = @Databases,
 	@Directory = @Directory,
@@ -471,9 +474,12 @@ WHERE d.[state] = 0
 ORDER BY d.name
 FOR XML PATH(''''), TYPE).value(''text()[1]'',''NVARCHAR(max)''), 1, LEN('',''), '''');
 
-SELECT @Databases = @Databases + CASE WHEN LEN(ISNULL(@ExcludeDatabases, '''')) > 0 THEN  '','' + @ExcludeDatabases END
-
-IF LEN(ISNULL(@ExcludeDatabases, '''')) > 0
+SELECT @Databases = @Databases + 
+	CASE 
+		WHEN LEN(ISNULL(@ExcludeDatabases, '''')) > 0 THEN  '','' + @ExcludeDatabases
+		ELSE ''''
+	END
+	
 EXECUTE dbo.DatabaseBackup 
 	@Databases = @Databases,
 	@Directory = @Directory,
@@ -746,9 +752,12 @@ WHERE d.[state] = 0
 ORDER BY d.name
 FOR XML PATH(''''), TYPE).value(''text()[1]'',''NVARCHAR(max)''), 1, LEN('',''), '''');
 
-SELECT @Databases = @Databases + CASE WHEN LEN(ISNULL(@ExcludeDatabases, '''')) > 0 THEN  '','' + @ExcludeDatabases END
-
-IF LEN(ISNULL(@ExcludeDatabases, '''')) > 0
+SELECT @Databases = @Databases + 
+	CASE 
+		WHEN LEN(ISNULL(@ExcludeDatabases, '''')) > 0 THEN  '','' + @ExcludeDatabases
+		ELSE ''''
+	END
+	
 EXECUTE dbo.DatabaseBackup 
 	@Databases = @Databases,
 	@Directory = @Directory,
