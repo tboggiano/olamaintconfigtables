@@ -179,6 +179,7 @@ FROM (SELECT d.name, d.state, d.is_in_standby FROM sys.databases d
               AND type = CASE WHEN @BackupType = ''FULL'' THEN ''D''
 				  WHEN @BackupType = ''DIFF'' THEN ''I''
 				  END
+	      AND is_copy_only = 0
     ) bs
         ON d.name = bs.database_name) d
     OUTER APPLY
@@ -452,6 +453,7 @@ FROM (SELECT d.name, d.state, d.is_in_standby FROM sys.databases d
               AND type = CASE WHEN @BackupType = ''FULL'' THEN ''D''
 				  WHEN @BackupType = ''DIFF'' THEN ''I''
 				  END
+	      AND is_copy_only = 0
     ) bs
         ON d.name = bs.database_name) d
     OUTER APPLY
@@ -726,6 +728,7 @@ FROM (SELECT d.name, d.state, d.is_in_standby FROM sys.databases d
               AND type = CASE WHEN @BackupType = ''FULL'' THEN ''D''
 				  WHEN @BackupType = ''DIFF'' THEN ''I''
 				  END
+	      AND is_copy_only = 0
     ) bs
         ON d.name = bs.database_name) d
     OUTER APPLY
