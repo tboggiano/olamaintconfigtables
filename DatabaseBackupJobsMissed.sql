@@ -1379,11 +1379,6 @@ EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'IndexOpt
 		@retry_interval=0, 
 		@os_run_priority=0, @subsystem=N'TSQL', 
 		@command=N'DECLARE @Databases nvarchar(max) = ''ALL_DATABASES'',
-	@FragmentationLow nvarchar(max),
-	@FragmentationMedium nvarchar(max),
-	@FragmentationHigh nvarchar(max),
-	@FragmentationLevel1 int,
-	@FragmentationLevel2 int,
 	@SortInTempdb nvarchar(max),
 	@MaxDOP int,
 	@FillFactor int,
@@ -1405,12 +1400,7 @@ EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'IndexOpt
 	@LogToTable nvarchar(max),
 	@Execute nvarchar(max);
 
-SELECT 	@FragmentationLow = FragmentationLow,
-	@FragmentationMedium = FragmentationMedium,
-	@FragmentationHigh = FragmentationHigh,
-	@FragmentationLevel1 = FragmentationLevel1,
-	@FragmentationLevel2 = FragmentationLevel2,
-	@SortInTempdb = SortInTempdb,
+SELECT 	@SortInTempdb = SortInTempdb,
 	@MaxDOP = [MaxDOP],
 	@FillFactor = [FillFactor],
 	@PadIndex = PadIndex,
@@ -1435,11 +1425,6 @@ WHERE [Databases] = @Databases
 
 EXECUTE dbo.IndexOptimize 
     @Databases = @Databases,
-    @FragmentationLow = @FragmentationLow,
-    @FragmentationMedium = @FragmentationMedium,
-    @FragmentationHigh = @FragmentationHigh,
-    @FragmentationLevel1 = @FragmentationLevel1,
-    @FragmentationLevel2 = @FragmentationLevel2,
     @SortInTempdb = @SortInTempdb,
     @MaxDOP = @MaxDOP,
     @FillFactor = @FillFactor,
