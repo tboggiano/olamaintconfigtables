@@ -48,8 +48,8 @@ EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'IndexOpt
 		@os_run_priority=0, @subsystem=N'TSQL', 
 		@command=N'DECLARE @Databases nvarchar(max) = ''ALL_DATABASES'',
 	@FragmentationLow nvarchar(max),
-	@FragmentationMedium nvarchar(max),
-	@FragmentationHigh nvarchar(max),
+	@FragmentationMedium nvarchar(max) = NULL,
+	@FragmentationHigh nvarchar(max) = NULL,
 	@FragmentationLevel1 int,
 	@FragmentationLevel2 int,
 	@SortInTempdb nvarchar(max),
@@ -74,8 +74,8 @@ EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'IndexOpt
 	@Execute nvarchar(max);
 
 SELECT 	@FragmentationLow = FragmentationLow,
-	@FragmentationMedium = FragmentationMedium,
-	@FragmentationHigh = FragmentationHigh,
+	--@FragmentationMedium = FragmentationMedium,
+	--@FragmentationHigh = FragmentationHigh,
 	@FragmentationLevel1 = FragmentationLevel1,
 	@FragmentationLevel2 = FragmentationLevel2,
 	@SortInTempdb = SortInTempdb,
