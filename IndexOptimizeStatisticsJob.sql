@@ -73,11 +73,12 @@ EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'IndexOpt
 	@LogToTable nvarchar(max),
 	@Execute nvarchar(max);
 
-SELECT 	@FragmentationLow = FragmentationLow,
+SELECT 	
+	--@FragmentationLow = FragmentationLow,
 	--@FragmentationMedium = FragmentationMedium,
 	--@FragmentationHigh = FragmentationHigh,
-	@FragmentationLevel1 = FragmentationLevel1,
-	@FragmentationLevel2 = FragmentationLevel2,
+	--@FragmentationLevel1 = FragmentationLevel1,
+	--@FragmentationLevel2 = FragmentationLevel2,
 	@SortInTempdb = SortInTempdb,
 	@MaxDOP = [MaxDOP],
 	@FillFactor = [FillFactor],
