@@ -47,7 +47,7 @@ EXEC @ReturnCode = msdb.dbo.sp_add_jobstep @job_id=@jobId, @step_name=N'IndexOpt
 		@retry_interval=0, 
 		@os_run_priority=0, @subsystem=N'TSQL', 
 		@command=N'DECLARE @Databases nvarchar(max) = ''ALL_DATABASES'',
-	@FragmentationLow nvarchar(max),
+	@FragmentationLow nvarchar(max) = NULL,
 	@FragmentationMedium nvarchar(max) = NULL,
 	@FragmentationHigh nvarchar(max) = NULL,
 	@FragmentationLevel1 int,
